@@ -48,17 +48,17 @@ def main():
     parser.add_argument("--output_dir", default="./t5_best")
     parser.add_argument("--n_trials", type=int, default=5)
     args = parser.parse_args()
-
+    print("loading tokenizer")
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    print("loading rouge")
     rouge = evaluate.load("rouge")
-
     print("loading data")
     full_data = load_dataset("abisee/cnn_dailymail", "3.0.0")
     # create a smaller dataset for now
     data = preprocessing.custom_dataset_size(full_data, 10000)
     # check if everything looks good with the dataset
     print("Small dataset:", data)
-    tokenized_data = data.map(preprocess, tokenizer)
+    tokenized_data = data.map(lambda x: preprocess(x, tokenizer))
     print("Tokenized dataset:", tokenized_data)
 
     data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=args.model_name)
