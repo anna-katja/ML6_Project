@@ -39,10 +39,10 @@ def minimal_preprocessing(data):
         data["article"] = re.sub(pattern, '', data["article"])
     # handling contractions
     data["article"] = contractions.fix(data["article"])
-    data["highlights"] = contractions.fix(data["highlights"])
+    #data["highlights"] = contractions.fix(data["highlights"])
     # removing extraneous white space
     data["article"] = data["article"].strip()
-    data["highlights"] = data["highlights"].strip()
+    #data["highlights"] = data["highlights"].strip()
 
     return data
 
