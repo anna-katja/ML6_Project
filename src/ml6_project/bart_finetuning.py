@@ -1,5 +1,17 @@
 import argparse
 import os
+
+# Set GPU before any torch/transformers imports
+parser = argparse.ArgumentParser()
+parser.add_argument("--model_name", default="facebook/bart-base")
+parser.add_argument("--output_dir", default="./bart_output")
+parser.add_argument("--n_trials", type=int, default=5)
+parser.add_argument("--gpu_id", type=int, default=0)
+args, _ = parser.parse_known_args()
+
+# Set CUDA device early
+os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+
 import numpy as np
 import torch
 import evaluate
@@ -13,6 +25,7 @@ from transformers import (
 )
 
 import preprocessing
+
 
 def preprocess(example, tokenizer):
     article = preprocessing.minimal_preprocessing(example["article"])
@@ -64,12 +77,6 @@ def model_init(model_name):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", default="facebook/bart-base")
-    parser.add_argument("--output_dir", default="./bart_output")
-    parser.add_argument("--n_trials", type=int, default=5)
-    args = parser.parse_args()
-
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -115,6 +122,7 @@ def main():
         try:
             trainer.train()
             metrics = trainer.evaluate()
+            trainer.save_model(os.path.join(args.output_dir, f"trial-{trial.number}"))
             return metrics["eval_rouge2"]
         except Exception as e:
             print(f"Trial {trial.number} failed: {e}")
