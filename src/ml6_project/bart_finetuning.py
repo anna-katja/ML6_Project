@@ -16,14 +16,19 @@ import numpy as np
 import torch
 import evaluate
 import optuna
-
 from datasets import load_dataset
 from transformers import (
     AutoTokenizer, AutoModelForSeq2SeqLM,
     DataCollatorForSeq2Seq,
     Seq2SeqTrainingArguments, Seq2SeqTrainer
 )
-
+import preprocessing
+from datasets import load_dataset
+from transformers import (
+    AutoTokenizer, AutoModelForSeq2SeqLM,
+    DataCollatorForSeq2Seq,
+    Seq2SeqTrainingArguments, Seq2SeqTrainer
+)
 import preprocessing
 
 
@@ -77,11 +82,17 @@ def model_init(model_name):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_name", default="facebook/bart-base")
+    parser.add_argument("--output_dir", default="./bart_output")
+    parser.add_argument("--n_trials", type=int, default=5)
+    args = parser.parse_args()
+
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    dataset = load_dataset("cnn_dailymail", "3.0.0")
+    dataset = load_dataset("abisee/cnn_dailymail", "3.0.0")
     dataset = preprocessing.custom_dataset_size(dataset, 10000)
     tokenized = dataset.map(lambda x: preprocess(x, tokenizer), batched=False)
 
