@@ -1,18 +1,36 @@
 import argparse
 import os
+
+# Set GPU before any torch/transformers imports
+parser = argparse.ArgumentParser()
+parser.add_argument("--model_name", default="facebook/bart-base")
+parser.add_argument("--output_dir", default="./bart_output")
+parser.add_argument("--n_trials", type=int, default=5)
+parser.add_argument("--gpu_id", type=int, default=0)
+args, _ = parser.parse_known_args()
+
+# Set CUDA device early
+os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+
 import numpy as np
 import torch
 import evaluate
 import optuna
-
 from datasets import load_dataset
 from transformers import (
     AutoTokenizer, AutoModelForSeq2SeqLM,
     DataCollatorForSeq2Seq,
     Seq2SeqTrainingArguments, Seq2SeqTrainer
 )
-
 import preprocessing
+from datasets import load_dataset
+from transformers import (
+    AutoTokenizer, AutoModelForSeq2SeqLM,
+    DataCollatorForSeq2Seq,
+    Seq2SeqTrainingArguments, Seq2SeqTrainer
+)
+import preprocessing
+
 
 def preprocess(example, tokenizer):
     article = preprocessing.minimal_preprocessing(example["article"])
@@ -74,7 +92,7 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    dataset = load_dataset("cnn_dailymail", "3.0.0")
+    dataset = load_dataset("abisee/cnn_dailymail", "3.0.0")
     dataset = preprocessing.custom_dataset_size(dataset, 10000)
     tokenized = dataset.map(lambda x: preprocess(x, tokenizer), batched=False)
 
@@ -115,6 +133,7 @@ def main():
         try:
             trainer.train()
             metrics = trainer.evaluate()
+            trainer.save_model(os.path.join(args.output_dir, f"trial-{trial.number}"))
             return metrics["eval_rouge2"]
         except Exception as e:
             print(f"Trial {trial.number} failed: {e}")
