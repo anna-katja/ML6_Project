@@ -1,142 +1,139 @@
+import argparse
 import os
-import re
 import numpy as np
-import contractions
+import torch
 import evaluate
 import optuna
-import torch
 
-from datasets import load_dataset, DatasetDict
-from nltk.corpus import stopwords
+from datasets import load_dataset
 from transformers import (
     AutoTokenizer, AutoModelForSeq2SeqLM,
-    DataCollatorForSeq2Seq, Seq2SeqTrainer, Seq2SeqTrainingArguments
+    DataCollatorForSeq2Seq,
+    Seq2SeqTrainingArguments, Seq2SeqTrainer
 )
 
-# Constants
-MODEL_NAME = "facebook/bart-base"
-OUTPUT_DIR = "./bart_base_optuna"
+import preprocessing
 
-# Dataset handling
-def custom_dataset_size(dataset, size, split_ratio=(0.7, 0.15, 0.15)):
-    assert isinstance(dataset, DatasetDict)
-    train_size = round(size * split_ratio[0])
-    val_size = round(size * split_ratio[1])
-    test_size = round(size * split_ratio[2])
-
-    shuffled = dataset["train"].shuffle(seed=42)
-    return DatasetDict({
-        "train": shuffled.select(range(train_size)),
-        "val": shuffled.select(range(train_size, train_size + val_size)),
-        "test": dataset["test"].shuffle(seed=42).select(range(test_size))
-    })
-
-# Text cleaning
-metadata_patterns = [
-    r"^[^(]*\([^\)]*\)\s*--\s*",
-    r"^.*UPDATED:\s+\.\s+\d{2}:\d{2}\s+\w+,\s+\d+\s+\w+\s+\d{4}\s+\.\s+",
-    r"^By\s+\.\s+[A-Z][a-z]+\s+[A-Z][a-z]+\s+\.\s+(?:and\s+Associated\s+Press\s+Reporter\s*\.\s*)?",
-    r"^(\([^\)]*\))",
-    r"^By\s+\.\s+[A-Z][a-z]+\s+[A-Z][a-z]+\s+\.\s+PUBLISHED:\s+\.\s+\d{2}:\d{2}\s+EST,\s+\d{1,2}\s+[A-Za-z]+\s+\d{4}\s+\.\s+\|\s+\.\s+UPDATED:\s+\.\s+\d{2}:\d{2}\s+EST,\s+\d{1,2}\s+[A-Za-z]+\s+\d{4}\s+\.\s+"
-]
-
-def minimal_preprocessing(article):
-    for pattern in metadata_patterns:
-        article = re.sub(pattern, '', article)
-    return contractions.fix(article).strip()
-
-# Tokenizer setup
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-if tokenizer.pad_token is None:
-    tokenizer.pad_token = tokenizer.eos_token
-
-# Preprocessing
-
-def preprocess(example):
-    article = minimal_preprocessing(example["article"])
-    model_inputs = tokenizer(article, max_length=1024, truncation=True)
+def preprocess(example, tokenizer):
+    article = preprocessing.minimal_preprocessing(example["article"])
+    model_inputs = tokenizer(
+        article,
+        max_length=1024,
+        truncation=True,
+        padding=False
+    )
 
     with tokenizer.as_target_tokenizer():
-        labels = tokenizer(example["highlights"], max_length=142, truncation=True)
+        labels = tokenizer(
+            example["highlights"],
+            max_length=142,
+            truncation=True,
+            padding=False
+        )
 
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
 
-# Metrics
-rouge = evaluate.load("rouge")
 
-def compute_metrics(eval_pred):
-    predictions, labels = eval_pred
-    predictions = np.clip(predictions, 0, tokenizer.vocab_size - 1).astype(np.int32)
-    decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True)
+def compute_metrics(tokenizer, rouge):
+    def _compute(eval_pred):
+        predictions, labels = eval_pred
+        predictions = np.clip(predictions, 0, tokenizer.vocab_size - 1).astype(np.int32)
+        labels = np.where(labels != -100, labels, tokenizer.pad_token_id).astype(np.int32)
 
-    labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+        try:
+            decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True)
+            decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+        except Exception as e:
+            print("Decoding error:", e)
+            decoded_preds = [""] * len(predictions)
+            decoded_labels = [""] * len(labels)
 
-    decoded_preds = [pred.strip() if pred.strip() else "empty" for pred in decoded_preds]
-    decoded_labels = [label.strip() if label.strip() else "empty" for label in decoded_labels]
+        decoded_preds = [p if p.strip() else "empty" for p in decoded_preds]
+        decoded_labels = [l if l.strip() else "empty" for l in decoded_labels]
 
-    result = rouge.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
-    prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in predictions]
-    result["gen_len"] = np.mean(prediction_lens)
-    return {k: round(v, 4) for k, v in result.items()}
+        result = rouge.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
+        result["gen_len"] = np.mean([np.count_nonzero(pred != tokenizer.pad_token_id) for pred in predictions])
+        return {k: round(v, 4) for k, v in result.items()}
 
-# Model init
-def model_init():
-    return AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+    return _compute
 
-# Load and process data
-dataset = load_dataset("cnn_dailymail", "3.0.0")
-small_dataset = custom_dataset_size(dataset, size=10000)
-tokenized_data = small_dataset.map(preprocess, batched=False)
 
-data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=MODEL_NAME)
+def model_init(model_name):
+    return AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
-# Optuna objective
-def objective(trial):
-    training_args = Seq2SeqTrainingArguments(
-        output_dir=f"{OUTPUT_DIR}/trial-{trial.number}",
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
-        learning_rate=trial.suggest_float("learning_rate", 1e-5, 3e-5, log=True),
-        per_device_train_batch_size=trial.suggest_categorical("train_batch_size", [4, 8, 16]),
-        per_device_eval_batch_size=8,
-        weight_decay=trial.suggest_float("weight_decay", 0.01, 0.1),
-        num_train_epochs=trial.suggest_int("num_train_epochs", 3, 6),
-        warmup_steps=trial.suggest_int("warmup_steps", 500, 2000),
-        logging_steps=50,
-        predict_with_generate=True,
-        load_best_model_at_end=True,
-        metric_for_best_model="eval_rouge2",
-        greater_is_better=True,
-        report_to="none",
-        fp16=torch.cuda.is_available(),
-        seed=42
-    )
 
-    trainer = Seq2SeqTrainer(
-        model_init=model_init,
-        args=training_args,
-        train_dataset=tokenized_data["train"],
-        eval_dataset=tokenized_data["val"],
-        data_collator=data_collator,
-        tokenizer=tokenizer,
-        compute_metrics=compute_metrics
-    )
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_name", default="facebook/bart-base")
+    parser.add_argument("--output_dir", default="./bart_output")
+    parser.add_argument("--n_trials", type=int, default=5)
+    args = parser.parse_args()
 
-    try:
-        trainer.train()
-        metrics = trainer.evaluate()
-        return metrics["eval_rouge2"]
-    except Exception as e:
-        print(f"Trial {trial.number} failed: {e}")
-        return 0.0
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
-# Run study
-if __name__ == "__main__":
-    print("CUDA Available:", torch.cuda.is_available())
+    dataset = load_dataset("cnn_dailymail", "3.0.0")
+    dataset = preprocessing.custom_dataset_size(dataset, 10000)
+    tokenized = dataset.map(lambda x: preprocess(x, tokenizer), batched=False)
+
+    rouge = evaluate.load("rouge")
+    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=args.model_name, padding=True, return_tensors="pt")
+
+    def objective(trial):
+        training_args = Seq2SeqTrainingArguments(
+            output_dir=os.path.join(args.output_dir, f"trial-{trial.number}"),
+            per_device_train_batch_size=trial.suggest_categorical("train_batch_size", [4, 8, 16]),
+            per_device_eval_batch_size=8,
+            learning_rate=trial.suggest_float("learning_rate", 1e-5, 3e-5, log=True),
+            weight_decay=trial.suggest_float("weight_decay", 0.01, 0.1),
+            num_train_epochs=trial.suggest_int("num_train_epochs", 3, 6),
+            warmup_steps=trial.suggest_int("warmup_steps", 500, 2000),
+            eval_strategy="epoch",
+            save_strategy="epoch",
+            logging_steps=50,
+            predict_with_generate=True,
+            load_best_model_at_end=True,
+            metric_for_best_model="eval_rouge2",
+            greater_is_better=True,
+            report_to="none",
+            fp16=torch.cuda.is_available(),
+            seed=42
+        )
+
+        trainer = Seq2SeqTrainer(
+            model_init=lambda: model_init(args.model_name),
+            args=training_args,
+            train_dataset=tokenized["train"],
+            eval_dataset=tokenized["val"],
+            tokenizer=tokenizer,
+            data_collator=data_collator,
+            compute_metrics=compute_metrics(tokenizer, rouge)
+        )
+
+        try:
+            trainer.train()
+            metrics = trainer.evaluate()
+            return metrics["eval_rouge2"]
+        except Exception as e:
+            print(f"Trial {trial.number} failed: {e}")
+            return 0.0
+
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=3)
+    study.optimize(objective, n_trials=args.n_trials)
 
-    print(f"Best Trial: {study.best_trial.number}")
-    print(f"Best Params: {study.best_params}")
+    best_trial = study.best_trial
+    print(f"Best Trial: {best_trial.number}")
+    print(f"Best Params: {best_trial.params}")
+    print(f"Best ROUGE-2 Score: {best_trial.value}")
+
+    os.makedirs(os.path.join(args.output_dir, "best_model"), exist_ok=True)
+    with open(os.path.join(args.output_dir, "best_model", "best_params.txt"), "w") as f:
+        f.write(f"Trial: {best_trial.number}\n")
+        f.write(f"Params: {best_trial.params}\n")
+        f.write(f"ROUGE-2: {best_trial.value}\n")
+
+
+if __name__ == "__main__":
+    main()
