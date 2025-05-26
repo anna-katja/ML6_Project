@@ -85,7 +85,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", default="facebook/bart-base")
     parser.add_argument("--output_dir", default="./bart_output")
-    parser.add_argument("--n_trials", type=int, default=5)
+    parser.add_argument("--n_trials", type=int, default=5) #increase to 10
     args = parser.parse_args()
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
@@ -106,10 +106,10 @@ def main():
             per_device_eval_batch_size=8,
             learning_rate=trial.suggest_float("learning_rate", 1e-5, 3e-5, log=True),
             weight_decay=trial.suggest_float("weight_decay", 0.01, 0.1),
-            num_train_epochs=trial.suggest_int("num_train_epochs", 3, 6),
+            num_train_epochs=trial.suggest_int("num_train_epochs", 3, 6), # change to 2, 12
             warmup_steps=trial.suggest_int("warmup_steps", 500, 2000),
             eval_strategy="epoch",
-            save_strategy="epoch",
+            save_strategy="epoch", # change to false/no
             logging_steps=50,
             predict_with_generate=True,
             load_best_model_at_end=True,
