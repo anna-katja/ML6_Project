@@ -1,16 +1,20 @@
 import argparse
 import os
-##
-# Set GPU before any torch/transformers imports
-parser = argparse.ArgumentParser()
-parser.add_argument("--model_name", default="facebook/bart-base")
-parser.add_argument("--output_dir", default="./bart_output")
-parser.add_argument("--n_trials", type=int, default=5)
-parser.add_argument("--gpu_id", type=int, default=0)
-args, _ = parser.parse_known_args()
 
-# Set CUDA device early
-os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+# Hardcode GPUs 1 and 2
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="BART fine-tuning")
+    parser.add_argument("--model_name", default="facebook/bart-large")
+    parser.add_argument("--output_dir", default="./bart_output_large")
+    parser.add_argument("--n_trials", type=int, default=6)
+    parser.add_argument("--dataset_size", type=int, default=12000)
+    return parser.parse_args()
+
+
+# Get args and set CUDA device before any torch/transformers imports
+args = parse_args()
 
 import numpy as np
 import torch
@@ -23,14 +27,6 @@ from transformers import (
     Seq2SeqTrainingArguments, Seq2SeqTrainer
 )
 import preprocessing
-from datasets import load_dataset
-from transformers import (
-    AutoTokenizer, AutoModelForSeq2SeqLM,
-    DataCollatorForSeq2Seq,
-    Seq2SeqTrainingArguments, Seq2SeqTrainer
-)
-import preprocessing
-
 
 def preprocess(example, tokenizer):
     article = preprocessing.minimal_preprocessing(example["article"])
@@ -82,34 +78,34 @@ def model_init(model_name):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", default="facebook/bart-large")
-    parser.add_argument("--output_dir", default="./bart_output")
-    parser.add_argument("--n_trials", type=int, default=15) #increase to 10
-    args = parser.parse_args()
+    print(f"Loading model: {args.model_name}")
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token = tokenizer.eos_token or tokenizer.pad_token
 
+    print(f"Loading dataset with size: {args.dataset_size}")
     dataset = load_dataset("abisee/cnn_dailymail", "3.0.0")
-    dataset = preprocessing.custom_dataset_size(dataset, 20000)
+    dataset = preprocessing.custom_dataset_size(dataset, args.dataset_size)
     tokenized = dataset.map(lambda x: preprocess(x, tokenizer), batched=False)
 
     rouge = evaluate.load("rouge")
-    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=args.model_name, padding=True, return_tensors="pt")
+    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=args.model_name, padding=True,
+                                           return_tensors="pt")
 
     def objective(trial):
+        train_batch_size = trial.suggest_categorical("train_batch_size", [8, 16, 32, 64])
+
         training_args = Seq2SeqTrainingArguments(
             output_dir=os.path.join(args.output_dir, f"trial-{trial.number}"),
-            per_device_train_batch_size=trial.suggest_categorical("train_batch_size", [4, 8, 16]),
-            per_device_eval_batch_size=8,
+            per_device_train_batch_size=train_batch_size,
+            per_device_eval_batch_size=train_batch_size,  # synced with train batch size
             learning_rate=trial.suggest_float("learning_rate", 1e-5, 3e-5, log=True),
-            weight_decay=trial.suggest_float("weight_decay", 0.01, 0.1),
-            num_train_epochs=trial.suggest_int("num_train_epochs", 2, 12), # change to 2, 12
+            weight_decay=trial.suggest_float("weight_decay", 0.01, 0.3),  # updated range
+            num_train_epochs=trial.suggest_int("num_train_epochs", 1, 5),
             warmup_steps=trial.suggest_int("warmup_steps", 500, 2000),
             eval_strategy="epoch",
-            save_strategy="no", # change to false/no
+            save_strategy="epoch",
             logging_steps=50,
             predict_with_generate=True,
             load_best_model_at_end=True,
@@ -147,8 +143,9 @@ def main():
     print(f"Best Params: {best_trial.params}")
     print(f"Best ROUGE-2 Score: {best_trial.value}")
 
-    os.makedirs(os.path.join(args.output_dir, "best_model"), exist_ok=True)
-    with open(os.path.join(args.output_dir, "best_model", "best_params.txt"), "w") as f:
+    save_dir = os.path.join(args.output_dir, "best_model_large")
+    os.makedirs(save_dir, exist_ok=True)
+    with open(os.path.join(save_dir, "best_params.txt"), "w") as f:
         f.write(f"Trial: {best_trial.number}\n")
         f.write(f"Params: {best_trial.params}\n")
         f.write(f"ROUGE-2: {best_trial.value}\n")
