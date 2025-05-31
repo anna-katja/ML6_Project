@@ -4,7 +4,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
 
 import argparse
 import preprocessing
-from datasets import load_dataset, DatasetDict
+from datasets import load_dataset
 import numpy as np
 import evaluate
 from transformers import AutoTokenizer, DataCollatorForSeq2Seq, AutoModelForSeq2SeqLM, Seq2SeqTrainingArguments, Seq2SeqTrainer
@@ -47,7 +47,7 @@ def main():
     best_dir = "t5_small_15_trials_best_additional_preprocess"
 
     parser = argparse.ArgumentParser(description="T5 fine-tuning")
-    parser.add_argument("--model_name", default="t5-small")
+    parser.add_argument("--model_name", default="t5-small")     #t5-small
     parser.add_argument("--output_dir", default=f"./{best_dir}")
     parser.add_argument("--n_trials", type=int, default=15)
     args = parser.parse_args()
@@ -76,7 +76,7 @@ def main():
         train_batch_size = trial.suggest_categorical("train_batch_size", [8, 16, 32, 64])
         weight_decay = trial.suggest_float("weight_decay", 0.01, 0.3)
 
-        arguments = Seq2SeqTrainingArguments (
+        arguments = Seq2SeqTrainingArguments(
             output_dir = os.path.join(args.output_dir, f"trial_{trial.number}"),
             per_device_train_batch_size = train_batch_size,
             per_device_eval_batch_size = train_batch_size,
@@ -89,10 +89,10 @@ def main():
             predict_with_generate = True,
             metric_for_best_model = "eval_rouge2",
             load_best_model_at_end = True,
-            save_total_limit=1,
+            save_total_limit = 1,
             greater_is_better = True,
             report_to = "none",
-            fp16=torch.cuda.is_available(),
+            fp16 = torch.cuda.is_available(),
             seed = 42,
         )
 
@@ -132,4 +132,7 @@ def main():
 if __name__ == "__main__":
     main()
 
+
+
+#t5 large: python t5_finetuning.py --model_name t5-large --output_dir ./t5_large_15_trials_best_additional_preprocess --n_trials 15
 
