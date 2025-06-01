@@ -43,9 +43,14 @@ def evaluate_model(model_path, test_dataset, metric_names=["rouge", "bertscore"]
     results = {}
     for metric_name, metric in eval_metrics.items():
         if metric_name == "bertscore":
-            results[metric_name] = metric.compute(predictions=predictions, references=references, lang="en")
+            bert = metric.compute(predictions=predictions, references=references, lang="en")
+            results[metric_name] = {
+                "precision": round(float(sum(bert["precision"])) / len(bert["precision"]), 4),
+                "recall": round(float(sum(bert["recall"])) / len(bert["recall"]), 4),
+                "f1": round(float(sum(bert["f1"])) / len(bert["f1"]), 4)
+            }
         else:
-            results[metric_name] = metric.compute(predictions=predictions, references=references)
+            results[metric_name] = {k: round(v, 4) for k, v in metric.compute(predictions=predictions, references=references).items()}
 
     return results
 
