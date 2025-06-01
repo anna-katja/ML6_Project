@@ -1,6 +1,6 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import argparse
 import preprocessing
@@ -70,11 +70,10 @@ def main():
     best_score = None
     def objective(trial):
         global best_score
-
-        learning_rate = trial.suggest_float("learning_rate", 1e-5, 3e-5, log=True)
-        num_train_epochs = trial.suggest_int("num_train_epochs", 2, 10)
-        train_batch_size = trial.suggest_categorical("train_batch_size", [8, 16, 32, 64])
-        weight_decay = trial.suggest_float("weight_decay", 0.01, 0.3)
+        learning_rate = 1.6155670746714905e-05 #trial.suggest_float("learning_rate", 1e-5, 3e-5, log=True)
+        num_train_epochs = 7 #trial.suggest_int("num_train_epochs", 2, 10)
+        train_batch_size = 16 #trial.suggest_categorical("train_batch_size", [8, 16, 32, 64])
+        weight_decay = 0.23891409664172059 #trial.suggest_float("weight_decay", 0.01, 0.3)
 
         arguments = Seq2SeqTrainingArguments(
             output_dir = os.path.join(args.output_dir, f"trial_{trial.number}"),
@@ -124,10 +123,11 @@ def main():
     print(f"Best Rouge Score: {best_trial.value}")
 
     os.makedirs(os.path.join(args.output_dir, best_dir), exist_ok=True)
-    with open(os.path.join(args.output_dir, best_dir, "best_params.txt"), "w") as f:
-        f.write(f"Trial: {best_trial.number}\n")
-        f.write(f"Params: {best_trial.params}\n")
-        f.write(f"ROUGE-2: {best_trial.value}\n")
+
+    #with open(os.path.join(args.output_dir, best_dir, "best_params.txt"), "w") as f:
+    #    f.write(f"Trial: {best_trial.number}\n")
+    #    f.write(f"Params: {best_trial.params}\n")
+    #    f.write(f"ROUGE-2: {best_trial.value}\n")
 
 if __name__ == "__main__":
     main()

@@ -24,7 +24,7 @@ finetuned_dir = project_root/"finetuned"
 
 model_paths = [
     ("Pretrained t5-small", pretrained_dir/"t5-small"),
-    ("Fine-tuned t5-small", finetuned_dir/"t5_small_15_trials_best"/"trial_0"/"checkpoint-1752"),       #broken .safetensors !!!
+    ("Fine-tuned t5-small", finetuned_dir/"t5_small_15_trials_best"/"trial_0"/"checkpoint-2628"),
     ("Fine-tuned t5-small (additional preprocessing)", finetuned_dir/"t5_small_15_trials_best_additional_preprocess"/"trial_11"/"checkpoint-657"),
     ("Fine-tuned t5-small (no preprocessing)", finetuned_dir/"t5_small_15_trials_best_no_preprocess"/"trial_3"/"checkpoint-330"),
 

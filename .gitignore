@@ -1,6 +1,5 @@
 *.pt
 *.pth
 *.safetensors
-
 *.bin
 *.json

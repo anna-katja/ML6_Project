@@ -52,9 +52,9 @@ def minimal_preprocessing(article):
         article = re.sub(pattern, '', article)
     article = contractions.fix(article)
     #article = lowercase(article)
-    article = remove_stopwords(article)
-    article = remove_punctuation(article)
-    article = article.strip()
+    #article = remove_stopwords(article)
+    #article = remove_punctuation(article)
+    #article = article.strip()
     return article
 
 

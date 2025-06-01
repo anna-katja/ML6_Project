@@ -80,7 +80,15 @@ finetuned_dir = project_root/"finetuned"
 pairs_to_evaluate = [
     {
         "pretrained": pretrained_dir/"t5-small",
-        "fine_tuned": finetuned_dir/"t5_small_15_trials_best_additional_preprocess"/"trial_11"/"checkpoint-657"
+        "fine_tuned": finetuned_dir/"t5_small_15_trials_best"/"trial_0"/"checkpoint-2628"
+    },
+    {
+        "pretrained": pretrained_dir / "t5-small",
+        "fine_tuned": finetuned_dir / "t5_small_15_trials_best_additional_preprocess"/"trial_11"/"checkpoint-657"
+    },
+    {
+        "pretrained": pretrained_dir / "t5-small",
+        "fine_tuned": finetuned_dir / "t5_small_15_trials_best_no_preprocess"/"trial_3"/"checkpoint-330"
     },
     {
         "pretrained": pretrained_dir/"t5-large",
