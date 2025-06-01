@@ -71,7 +71,7 @@ test_data = dataset["test"].select(range(100))        #test
 # print(test_data[0])
 
 this_file = Path(__file__).resolve()
-project_root = this_file.parents[1]     #ml6_project
+project_root = this_file.parents[2]     #ml6_project
 
 pretrained_dir = project_root/"pretrained"
 finetuned_dir = project_root/"finetuned"
@@ -79,19 +79,19 @@ finetuned_dir = project_root/"finetuned"
 pairs_to_evaluate = [
     {
         "pretrained": pretrained_dir/"t5-small",
-        "fine_tuned": finetuned_dir/"t5_small_15_trials_best_additional_preprocess"/"trial_0"
+        "fine_tuned": finetuned_dir/"t5_small_15_trials_best"/"trial_0"/"checkpoint-1752"
     },
     {
         "pretrained": pretrained_dir/"t5-large",
-        "fine_tuned": finetuned_dir/"t5_large_10_trials_best"/"trial_0"
+        "fine_tuned": finetuned_dir/"t5_large_10_trials_best"/"trial_0"/"checkpoint-876"
     },
     {
         "pretrained": pretrained_dir/"bart-base",
-        "fine_tuned": finetuned_dir/"bart_output_small"/"best_model_small"
+        "fine_tuned": finetuned_dir/"bart_output_small"/"best_model_small"/"checkpoint-1752"
     },
     {
         "pretrained": pretrained_dir/"bart-large",
-        "fine_tuned": finetuned_dir/"bart_output_large"/"best_model_large"
+        "fine_tuned": finetuned_dir/"bart_output_large"/"best_model_large"/"checkpoint-2100"
     },
 ]
 
