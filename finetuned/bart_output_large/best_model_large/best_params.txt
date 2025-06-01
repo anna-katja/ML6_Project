@@ -1,3 +1,0 @@
-Trial: 1
-Params: {'train_batch_size': 8, 'learning_rate': 1.566020092700217e-05, 'weight_decay': 0.15572346553368713, 'num_train_epochs': 4, 'warmup_steps': 1621}
-ROUGE-2: 0.1009
