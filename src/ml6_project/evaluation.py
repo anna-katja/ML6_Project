@@ -33,7 +33,7 @@ def evaluate_model(model_path, test_dataset, metric_names=["rouge", "bertscore"]
         inputs = tokenizer(example["article"], max_length=1024, truncation=True, padding=True, return_tensors="pt")
         inputs = {key: tensor.to(model.device) for key, tensor in inputs.items()}
         with torch.no_grad():
-            outputs = model.generate(input_ids=inputs["input_ids"], max_new_tokens=142, num_beams=5)
+            outputs = model.generate(input_ids=inputs["input_ids"], max_new_tokens=142, num_beams=5)        #NB: .generate() sets model to eval() mode!
         decoded_pred = tokenizer.decode(outputs[0], skip_special_tokens=True)
         decoded_ref = example["highlights"]
 
@@ -101,6 +101,8 @@ for pair in pairs_to_evaluate:
 
 
 
+
+# NB: average (bert)scores for precision, recall and f1 ???
 
 
 """
