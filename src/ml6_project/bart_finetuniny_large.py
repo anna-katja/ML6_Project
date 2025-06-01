@@ -7,7 +7,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
 def parse_args():
     parser = argparse.ArgumentParser(description="BART fine-tuning")
     parser.add_argument("--model_name", default="facebook/bart-large")
-    parser.add_argument("--output_dir", default="./bart_output_large")
+    parser.add_argument("--output_dir", default="ml6_project/finetuned/bart_output_large")
     parser.add_argument("--n_trials", type=int, default=6)
     parser.add_argument("--dataset_size", type=int, default=12000)
     return parser.parse_args()

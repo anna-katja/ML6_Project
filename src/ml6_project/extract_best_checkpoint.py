@@ -2,7 +2,7 @@ import json
 import os
 from glob import glob
 
-trial_path = "./bart_output_large/trial-1"
+trial_path = "../../finetuned/bart_output_large/trial-1"
 checkpoint_states = glob(os.path.join(trial_path, "checkpoint-*/trainer_state.json"))
 
 best = None

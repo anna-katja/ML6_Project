@@ -5,7 +5,7 @@ import os
 def parse_args():
     parser = argparse.ArgumentParser(description="BART fine-tuning")
     parser.add_argument("--model_name", default="facebook/bart-base")   #bart-base
-    parser.add_argument("--output_dir", default="./bart_output_small")
+    parser.add_argument("--output_dir", default="ml6_project/finetuned/bart_output_small")
     parser.add_argument("--n_trials", type=int, default=12)
     parser.add_argument("--gpu_id", type=int, default=0)
     parser.add_argument("--dataset_size", type=int, default=10000)

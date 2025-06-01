@@ -48,7 +48,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="T5 fine-tuning")
     parser.add_argument("--model_name", default="t5-small")     #t5-small
-    parser.add_argument("--output_dir", default=f"./{best_dir}")
+    parser.add_argument("--output_dir", default=f"ml6_project/finetuned/{best_dir}")
     parser.add_argument("--n_trials", type=int, default=15)
     args = parser.parse_args()
 
