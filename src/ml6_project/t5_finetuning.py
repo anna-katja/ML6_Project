@@ -40,14 +40,10 @@ def model_init(model_name):
 
 # main
 def main():
-    #print("GPU Available:", torch.cuda.is_available())
-    #print("Using device:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")
-    #torch.cuda.set_per_process_memory_fraction(0.8, device=0)
-
-    best_dir = "t5_small_15_trials_best_additional_preprocess"
+    best_dir = "t5_small_15_trials_best"
 
     parser = argparse.ArgumentParser(description="T5 fine-tuning")
-    parser.add_argument("--model_name", default="t5-small")     #t5-small
+    parser.add_argument("--model_name", default="t5-small")
     parser.add_argument("--output_dir", default=f"ml6_project/finetuned/{best_dir}")
     parser.add_argument("--n_trials", type=int, default=15)
     args = parser.parse_args()
@@ -70,10 +66,10 @@ def main():
     best_score = None
     def objective(trial):
         global best_score
-        learning_rate = 1.6155670746714905e-05 #trial.suggest_float("learning_rate", 1e-5, 3e-5, log=True)
-        num_train_epochs = 7 #trial.suggest_int("num_train_epochs", 2, 10)
-        train_batch_size = 16 #trial.suggest_categorical("train_batch_size", [8, 16, 32, 64])
-        weight_decay = 0.23891409664172059 #trial.suggest_float("weight_decay", 0.01, 0.3)
+        learning_rate = trial.suggest_float("learning_rate", 1e-5, 3e-5, log=True)
+        num_train_epochs = trial.suggest_int("num_train_epochs", 2, 10)
+        train_batch_size = trial.suggest_categorical("train_batch_size", [8, 16, 32, 64])
+        weight_decay = trial.suggest_float("weight_decay", 0.01, 0.3)
 
         arguments = Seq2SeqTrainingArguments(
             output_dir = os.path.join(args.output_dir, f"trial_{trial.number}"),
@@ -124,15 +120,10 @@ def main():
 
     os.makedirs(os.path.join(args.output_dir, best_dir), exist_ok=True)
 
-    #with open(os.path.join(args.output_dir, best_dir, "best_params.txt"), "w") as f:
-    #    f.write(f"Trial: {best_trial.number}\n")
-    #    f.write(f"Params: {best_trial.params}\n")
-    #    f.write(f"ROUGE-2: {best_trial.value}\n")
+    with open(os.path.join(args.output_dir, best_dir, "best_params.txt"), "w") as f:
+        f.write(f"Trial: {best_trial.number}\n")
+        f.write(f"Params: {best_trial.params}\n")
+        f.write(f"ROUGE-2: {best_trial.value}\n")
 
 if __name__ == "__main__":
     main()
-
-
-
-#t5 large: python t5_finetuning.py --model_name t5-large --output_dir ./t5_large_15_trials_best_additional_preprocess --n_trials 15
-
