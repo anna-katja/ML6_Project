@@ -12,20 +12,23 @@ def custom_dataset_size(dataset, size, split_ratio=(0.7, 0.15, 0.15)):
     assert len(split_ratio) == 3, "Split ratio must have 3 elements"
     assert abs(sum(split_ratio) - 1.0) < 1e-6, "Split ratio must sum to 1"
 
-    train_size = round(size * split_ratio[0])
-    val_size = round(size*(split_ratio[0]+split_ratio[1]))
+    train_size = round(size*split_ratio[0])
+    val_size = round(size*split_ratio[1])
     test_size = round(size*split_ratio[2])
 
+    shuffled_train = dataset["train"].shuffle(seed=42)
+    shuffled_test = dataset["test"].shuffle(seed=42)
+
     subset = DatasetDict(
-        train = dataset["train"].shuffle(seed=42).select(range(train_size)),
-        val = dataset["train"].shuffle(seed=42).select(range(train_size, val_size)),
-        test = dataset["test"].shuffle(seed=42).select(range(test_size))
+        train = shuffled_train.select(range(train_size)),
+        val = shuffled_train.select(range(train_size, train_size + val_size)),
+        test = shuffled_test.select(range(test_size))
     )
 
     return subset
 
-# patterns of metadata that needs to be removed
 
+# patterns of metadata that needs to be removed
 pattern_1 = r"^[^(]*\([^\)]*\)\s*--\s*"     #LONDON (Reuters) --
 pattern_2 = r"^.*UPDATED:\s+\.\s+\d{2}:\d{2}\s+\w+,\s+\d+\s+\w+\s+\d{4}\s+\.\s+"        #UPDATED: . 14:35 Tuesday, 28 May 2024 .
 pattern_3 = r"^By\s+\.\s+[A-Z][a-z]+\s+[A-Z][a-z]+\s+\.\s+(?:and\s+Associated\s+Press\s+Reporter\s*\.\s*)?"     #By . John Smith . and Associated Press Reporter .
